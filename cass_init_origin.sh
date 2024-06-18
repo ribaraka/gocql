@@ -3,9 +3,6 @@
 # Path to the cassandra.yaml file inside the container
 CASSANDRA_CONFIG="/etc/cassandra/cassandra.yaml"
 
-# Path to the properties YAML file
-#PROPERTIES_YAML="/docker-entrypoint-initdb.d/properties.yaml"
-
 # Function to update a property in the cassandra.yaml file
 update_property() {
   local property=$1
@@ -22,17 +19,19 @@ update_property() {
 }
 
 # Update desired properties
-#update_property "key_cache_save_period" "14400"
-#update_property "write_request_timeout" "399"
+#update_property "write_request_timeout_in_ms" "700"
+#update_property "enable_user_defined_functions" "true"
+#update_property "num_tokens" "1"
 update_property "cluster_name" "MyCluster"
-pkill -f cassandra
-cassandra -R
-#update_property "table_options.compression.class" "LZ4Compressor"
 
+
+#update_property "concurrent_reads" "2"
+#update_property "concurrent_writes": "2"
+#update_property "write_request_timeout_in_ms": "5000"
+#update_property "read_request_timeout_in_ms": "5000"
+#update_property "user_defined_functions_enabled: true"
 
 # Add more properties as needed
 # update_property "another_property" "value"
 
-
-
-# service cassandra restart
+echo "Cassandra configuration modified successfully."
