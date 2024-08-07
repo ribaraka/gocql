@@ -45,6 +45,30 @@ func TestMain(m *testing.M) {
 		env["AUTH_TEST"] = "true"
 	}
 
+	fs := []testcontainers.ContainerFile{}
+	if *flagRunSslTest {
+		env["SSL_TEST"] = "true"
+
+		fs = append(fs, []testcontainers.ContainerFile{
+			{
+				HostFilePath:      "./testdata/pki/.keystore",
+				ContainerFilePath: "testdata/.keystore",
+				FileMode:          0o777,
+			},
+			{
+				HostFilePath:      "./testdata/pki/.truststore",
+				ContainerFilePath: "testdata/.truststore",
+				FileMode:          0o777,
+			},
+		}...)
+	}
+
+	fs = append(fs, testcontainers.ContainerFile{
+		HostFilePath:      "update_container_cass_config.sh",
+		ContainerFilePath: "/update_container_cass_config.sh",
+		FileMode:          0o777,
+	})
+
 	networkRequest := testcontainers.GenericNetworkRequest{
 		NetworkRequest: testcontainers.NetworkRequest{
 			Name: "cassandra",
@@ -62,25 +86,8 @@ func TestMain(m *testing.M) {
 			Image:        "cassandra:" + cassandraVersion,
 			ExposedPorts: []string{"9042/tcp"},
 			Env:          env,
-			Files: []testcontainers.ContainerFile{
-				{
-					HostFilePath:      "./testdata/pki/.keystore",
-					ContainerFilePath: "testdata/.keystore",
-					FileMode:          0o777,
-				},
-				{
-					HostFilePath:      "./testdata/pki/.truststore",
-					ContainerFilePath: "testdata/.truststore",
-					FileMode:          0o777,
-				},
-				{
-					HostFilePath:      "update_container_cass_config.sh",
-					ContainerFilePath: "/update_container_cass_config.sh",
-					FileMode:          0o777,
-				},
-			},
-
-			Networks: []string{"cassandra"},
+			Files:        fs,
+			Networks:     []string{"cassandra"},
 			LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
 				PostStarts: []testcontainers.ContainerHook{
 					func(ctx context.Context, c testcontainers.Container) error {
@@ -101,6 +108,7 @@ func TestMain(m *testing.M) {
 			WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
 			Name:       "cassandra" + strconv.Itoa(number),
 		}
+
 		container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 			ContainerRequest: req,
 			Started:          true,
