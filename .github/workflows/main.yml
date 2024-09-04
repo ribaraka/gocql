@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: [ '1.21', '1.22' ]
+        go: [ '1.23', '1.22' ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
@@ -29,7 +29,7 @@ jobs:
     name: integration-testscontainers
     strategy:
       matrix:
-        go: [ '1.21', '1.22' ]
+        go: [ '1.23', '1.22' ]
         cassandra_version: [ '4.0.8', '4.1.1' ]
         auth: [ "false" ]
         compressor: [ "snappy" ]
@@ -53,7 +53,7 @@ jobs:
     name: integration-auth-testscontainers
     strategy:
       matrix:
-        go: [ '1.21', '1.22' ]
+        go: [ '1.23', '1.22' ]
         cassandra_version: [ '4.0.8', '4.1.1' ]
         compressor: [ "snappy" ]
     steps:
