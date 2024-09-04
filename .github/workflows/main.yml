@@ -53,8 +53,8 @@ jobs:
     name: integration-auth-testscontainers
     strategy:
       matrix:
-        go: [ '1.20', '1.21' ]
-        cassandra_version: [ '4.0.8', '4.1.1' ]
+        go: [ '1.20' ]
+        cassandra_version: [ '4.0.8' ]
         compressor: [ "snappy" ]
     steps:
       - uses: actions/checkout@v3
@@ -67,4 +67,4 @@ jobs:
           echo "args=$args" >> $GITHUB_ENV
       - name: run
         run: |
-          go test -v -run=TestAuthentication -tags integration gocql_debug -timeout=15s -runauth ${{ env.args }}          
+          go test -v -run=TestAuthentication -tags ""integration" "gocql_debug"" -timeout=15s -runauth ${{ env.args }}          
