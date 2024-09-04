@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -22,7 +21,7 @@ func TestMain(m *testing.M) {
 
 	flag.Parse()
 
-	cassandraVersion := flagCassVersion.String()[1:]
+	cassandraVersion := "5.0"
 
 	jvmOpts := "-Dcassandra.test.fail_writes_ks=test -Dcassandra.custom_query_handler_class=org.apache.cassandra.cql3.CustomPayloadMirroringQueryHandler"
 	if *clusterSize == 1 {
