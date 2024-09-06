@@ -17,7 +17,7 @@
 //
 module github.com/gocql/gocql
 
-go 1.22
+go 1.21
 
 require (
 	github.com/golang/snappy v0.0.4
