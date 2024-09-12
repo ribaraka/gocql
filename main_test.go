@@ -256,7 +256,7 @@ func restoreCluster(ctx context.Context) error {
 			cmd = []string{"cqlsh", "-e", "SELECT bootstrapped FROM system.local"}
 		}
 
-		err := wait.ForExec(cmd).WithResponseMatcher(func(body io.Reader) bool {
+		err := wait.ForExec(cmd).WithStartupTimeout(2*time.Minute).WithResponseMatcher(func(body io.Reader) bool {
 			data, _ := io.ReadAll(body)
 			return strings.Contains(string(data), "COMPLETED")
 		}).WaitUntilReady(ctx, container.TC)
