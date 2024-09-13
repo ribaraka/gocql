@@ -16,7 +16,7 @@ update_property() {
   elif [[ $CASS_VERSION == 4.1.* ]]; then
     indent="  "
   else
-    indent="    "
+    indent="  "
   fi
 
   if grep -q "^${property}:" "$CASSANDRA_CONFIG"; then
@@ -64,11 +64,18 @@ configure_cassandra() {
   )
 
   if [[ $AUTH_TEST == true ]]; then
+      if [[ $CASS_VERSION == 5.*.* ]]; then
+        conf+=(
+          "authenticator.class_name : org.apache.cassandra.auth.PasswordAuthenticator"
+          "authorizer: CassandraAuthorizer"
+        )
+      else
     conf+=(
       "authenticator: PasswordAuthenticator"
       "authorizer: CassandraAuthorizer"
         )
   fi
+fi
 
   if [[ $RUN_SSL_TEST == true ]]; then
     conf+=(
@@ -122,4 +129,3 @@ sed -i "s/^rpc_address:.*/rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.ya
 sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.yaml
 
 echo "Cassandra configuration modified successfully."
-
