@@ -3,6 +3,11 @@
 # Path to the cassandra.yaml file inside the container
 CASSANDRA_CONFIG="/etc/cassandra/cassandra.yaml"
 
+until [ -s "$CASSANDRA_CONFIG" ]
+do
+    sleep 0.1
+done
+
 # Function to update a property in the cassandra.yaml file
 update_property() {
   local property=$1

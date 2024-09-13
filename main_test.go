@@ -159,7 +159,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 			PostStarts: []testcontainers.ContainerHook{
 				func(ctx context.Context, c testcontainers.Container) error {
 					// wait for cassandra config.yaml to initialize
-					time.Sleep(100 * time.Millisecond)
+					time.Sleep(70 * time.Millisecond)
 
 					_, body, err := c.Exec(ctx, []string{"bash", "./update_container_cass_config.sh"})
 					if err != nil {
@@ -267,7 +267,7 @@ func restoreCluster(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("cannot wait until fully bootstrapped: %v", err)
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil

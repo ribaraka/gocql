@@ -8,35 +8,35 @@ on:
     types: [ opened, synchronize, reopened ]
 
 jobs:
-#  build:
-#    name: Unit tests
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        go: [ '1.23' ]
-#    steps:
-#      - uses: actions/checkout@v3
-#      - uses: actions/setup-go@v4
-#        with:
-#          go-version: ${{ matrix.go }}
-#      - run: go vet
-#      - name: Run unit tests
-#        run: go test -v -tags unit -race
+  build:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.22', '1.23' ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go vet
+      - name: Run unit tests
+        run: go test -v -tags unit -race
 
   integration-testscontainers:
-#    needs: build
+    needs: build
     runs-on: ubuntu-latest
     name: integration-testscontainers
     strategy:
       matrix:
         go: [ '1.22', '1.23' ]
-        cassandra_version: ['4.0.13','5.0.0']
+        cassandra_version: ['4.1.6','5.0.0']
         auth: [ "false" ]
         compressor: [ "snappy" ]
-        tags: [ "tc"]
+        tags: ["integration", "cassandra", "tc"]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
       - name: setup
@@ -54,11 +54,11 @@ jobs:
 #    strategy:
 #      matrix:
 #        go: [ '1.23' ]
-#        cassandra_version: [ '5.0.0' ]
+#        cassandra_version: [ '4.1.6', '5.0.0' ]
 #        compressor: [ "snappy" ]
 #    steps:
 #      - uses: actions/checkout@v3
-#      - uses: actions/setup-go@v4
+#      - uses: actions/setup-go@v5
 #        with:
 #          go-version: ${{ matrix.go }}
 #      - name: setup
