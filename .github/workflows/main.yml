@@ -29,8 +29,8 @@ jobs:
     name: integration-testscontainers
     strategy:
       matrix:
-        go: [ '1.23' ]
-        cassandra_version: ['5.0.0']
+        go: [ '1.22', '1.23' ]
+        cassandra_version: ['4.0.13','5.0.0']
         auth: [ "false" ]
         compressor: [ "snappy" ]
         tags: [ "tc"]
