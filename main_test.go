@@ -34,6 +34,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -105,10 +106,17 @@ func NodeUpTC(ctx context.Context, number int) error {
 		env["AUTH_TEST"] = "true"
 	}
 
-	fs := []testcontainers.ContainerFile{{}}
+	fs := []testcontainers.ContainerFile{
+		{
+			HostFilePath:      "update_container_cass_config.sh",
+			ContainerFilePath: "/update_container_cass_config.sh",
+			FileMode:          0o777,
+		},
+	}
+
 	if *flagRunSslTest {
 		env["RUN_SSL_TEST"] = "true"
-		fs = []testcontainers.ContainerFile{
+		fs = append(fs, []testcontainers.ContainerFile{
 			{
 				HostFilePath:      "./testdata/pki/.keystore",
 				ContainerFilePath: "testdata/.keystore",
@@ -117,11 +125,6 @@ func NodeUpTC(ctx context.Context, number int) error {
 			{
 				HostFilePath:      "./testdata/pki/.truststore",
 				ContainerFilePath: "testdata/.truststore",
-				FileMode:          0o777,
-			},
-			{
-				HostFilePath:      "update_container_cass_config.sh",
-				ContainerFilePath: "/update_container_cass_config.sh",
 				FileMode:          0o777,
 			},
 			{
@@ -144,7 +147,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 				ContainerFilePath: "/root/.cassandra/ca.crt",
 				FileMode:          0o777,
 			},
-		}
+		}...)
 	}
 
 	req := testcontainers.ContainerRequest{
@@ -215,7 +218,7 @@ func getCassNodeID(ctx context.Context, container testcontainers.Container, ip s
 	if *flagRunSslTest {
 		cmd = []string{"cqlsh", ip, "9042", "--ssl", "ip", "/root/.cassandra/cqlshrc", "-e", "SELECT host_id FROM system.local;"}
 	} else {
-		cmd = []string{"cqlsh", "-e", "SELECT host_id FROM system.local;"}
+		cmd = []string{"cqlsh", ip, "9042", "-e", "SELECT host_id FROM system.local;"}
 	}
 
 	_, reader, err := container.Exec(ctx, cmd)
@@ -228,14 +231,15 @@ func getCassNodeID(ctx context.Context, container testcontainers.Container, ip s
 	}
 	output := string(b)
 
-	lines := strings.Split(output, "\n")
+	re := regexp.MustCompile(`host_id\s*[-]+\s*([a-f0-9-]{36})`)
 
-	if len(lines) < 4 {
-		return "", fmt.Errorf("unexpected output format, less than 4 lines: %v", lines)
+	matches := re.FindStringSubmatch(output)
+
+	if len(matches) != 2 {
+		return "", fmt.Errorf("failed to find host_id: %v", output)
 	}
-	hostID := strings.TrimSpace(lines[3])
 
-	return hostID, nil
+	return matches[1], nil
 }
 
 // restoreCluster is a helper function that ensures the cluster remains fully operational during topology changes.
@@ -253,7 +257,7 @@ func restoreCluster(ctx context.Context) error {
 		if *flagRunSslTest {
 			cmd = []string{"cqlsh", container.Addr, "9042", "--ssl", "ip", "/root/.cassandra/cqlshrc", "-e", "SELECT bootstrapped FROM system.local"}
 		} else {
-			cmd = []string{"cqlsh", "-e", "SELECT bootstrapped FROM system.local"}
+			cmd = []string{"cqlsh", container.Addr, "9042", "-e", "SELECT bootstrapped FROM system.local"}
 		}
 
 		err := wait.ForExec(cmd).WithStartupTimeout(2*time.Minute).WithResponseMatcher(func(body io.Reader) bool {
