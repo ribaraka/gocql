@@ -47,24 +47,24 @@ jobs:
         run: |
           go test -v -tags "${{ matrix.tags }} gocql_debug" -timeout=10m -race ${{ env.args }}
 
-#  integration-auth-testscontainers:
-#    needs: build
-#    runs-on: ubuntu-latest
-#    name: integration-auth-testscontainers
-#    strategy:
-#      matrix:
-#        go: [ '1.23' ]
-#        cassandra_version: [ '4.1.6', '5.0.0' ]
-#        compressor: [ "snappy" ]
-#    steps:
-#      - uses: actions/checkout@v3
-#      - uses: actions/setup-go@v5
-#        with:
-#          go-version: ${{ matrix.go }}
-#      - name: setup
-#        run: |
-#          args="-gocql.timeout=60s -runssl -proto=4 -rf=3 -clusterSize=1 -autowait=2000ms -runauth -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }}"
-#          echo "args=$args" >> $GITHUB_ENV
-#      - name: run
-#        run: |
-#          go test -v -run=TestAuthentication -tags ""integration" gocql_debug" -timeout=15s -runauth ${{ env.args }}
+  integration-auth-testscontainers:
+    needs: build
+    runs-on: ubuntu-latest
+    name: integration-auth-testscontainers
+    strategy:
+      matrix:
+        go: [ '1.23' ]
+        cassandra_version: [ '4.1.6', '5.0.0' ]
+        compressor: [ "snappy" ]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: setup
+        run: |
+          args="-gocql.timeout=60s -runssl -proto=4 -rf=3 -clusterSize=1 -autowait=2000ms -runauth -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }}"
+          echo "args=$args" >> $GITHUB_ENV
+      - name: run
+        run: |
+          go test -v -run=TestAuthentication -tags ""integration" gocql_debug" -timeout=15s -runauth ${{ env.args }}

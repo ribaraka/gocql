@@ -159,7 +159,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 			PostStarts: []testcontainers.ContainerHook{
 				func(ctx context.Context, c testcontainers.Container) error {
 					// wait for cassandra config.yaml to initialize
-					time.Sleep(70 * time.Millisecond)
+					time.Sleep(75 * time.Millisecond)
 
 					_, body, err := c.Exec(ctx, []string{"bash", "./update_container_cass_config.sh"})
 					if err != nil {
