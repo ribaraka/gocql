@@ -34,7 +34,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -46,12 +45,13 @@ import (
 )
 
 type TChost struct {
-	TC   testcontainers.Container
-	Addr string
-	ID   string
+	TC           testcontainers.Container
+	Addr         string
+	ID           string
+	CountRestart int
 }
 
-var cassNodes = make(map[string]TChost)
+var cassNodes = make(map[string]*TChost)
 var networkName string
 
 func TestMain(m *testing.M) {
@@ -73,8 +73,13 @@ func TestMain(m *testing.M) {
 			log.Fatalf("Failed to start Cassandra node %d: %v", i, err)
 		}
 	}
-	// remove the last coma
-	*flagCluster = (*flagCluster)[:len(*flagCluster)-1]
+
+	// no need host_id for auth test
+	if !*flagRunAuthTest {
+		if err := assignCassNodeID(); err != nil {
+			log.Fatalf("Failed to assign Cassandra node ID: %v", err)
+		}
+	}
 
 	// run all tests
 	code := m.Run()
@@ -127,26 +132,6 @@ func NodeUpTC(ctx context.Context, number int) error {
 				ContainerFilePath: "testdata/.truststore",
 				FileMode:          0o777,
 			},
-			{
-				HostFilePath:      "./testdata/pki/cqlshrc",
-				ContainerFilePath: "/root/.cassandra/cqlshrc",
-				FileMode:          0o777,
-			},
-			{
-				HostFilePath:      "./testdata/pki/gocql.crt",
-				ContainerFilePath: "/root/.cassandra/gocql.crt",
-				FileMode:          0o777,
-			},
-			{
-				HostFilePath:      "./testdata/pki/gocql.key",
-				ContainerFilePath: "/root/.cassandra/gocql.key",
-				FileMode:          0o777,
-			},
-			{
-				HostFilePath:      "./testdata/pki/ca.crt",
-				ContainerFilePath: "/root/.cassandra/ca.crt",
-				FileMode:          0o777,
-			},
 		}...)
 	}
 
@@ -159,7 +144,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 			PostStarts: []testcontainers.ContainerHook{
 				func(ctx context.Context, c testcontainers.Container) error {
 					// wait for cassandra config.yaml to initialize
-					time.Sleep(1 * time.Second)
+					time.Sleep(100 * time.Millisecond)
 
 					_, body, err := c.Exec(ctx, []string{"bash", "./update_container_cass_config.sh"})
 					if err != nil {
@@ -197,55 +182,82 @@ func NodeUpTC(ctx context.Context, number int) error {
 		time.Sleep(10 * time.Second)
 	}
 
-	hostID, err := getCassNodeID(ctx, container, cIP)
-	if err != nil {
-		return err
-	}
+	//hostID, err := getCassNodeID(ctx, container, cIP)
+	//if err != nil {
+	//	return err
+	//}
+	//fmt.Println("HostID IIIIissssssss", hostID)
 
-	cassNodes[req.Name] = TChost{
+	cassNodes[req.Name] = &TChost{
 		TC:   container,
 		Addr: cIP,
-		ID:   hostID,
+		//ID:   hostID,
 	}
 
-	*flagCluster += cIP + ","
+	if *clusterSize > number {
+		*flagCluster += cIP + ","
+	}
 
 	return nil
 }
 
-func getCassNodeID(ctx context.Context, container testcontainers.Container, ip string) (string, error) {
-	var cmd []string
-	if *flagRunSslTest {
-		cmd = []string{"cqlsh", ip, "9042", "--ssl", "ip", "/root/.cassandra/cqlshrc", "-e", "SELECT host_id FROM system.local;"}
-	} else {
-		cmd = []string{"cqlsh", ip, "9042", "-e", "SELECT host_id FROM system.local;"}
-	}
+//func getCassNodeID(ctx context.Context, container testcontainers.Container, ip string) (string, error) {
+//	session, err := createCluster().CreateSession()
+//	if err != nil {
+//		return "", err
+//	}
+//	defer session.Close()
+//
+//	var hostID string
+//	err = session.Query("SELECT host_id FROM system.local").Scan(&hostID)
+//	if err != nil {
+//		return "", fmt.Errorf("failed to query host node info: %v", err)
+//	}
+//
+//	return hostID, nil
+//}
 
-	_, reader, err := container.Exec(ctx, cmd)
+func assignCassNodeID() error {
+	cluster := createCluster()
+	session, err := cluster.CreateSession()
 	if err != nil {
-		return "", fmt.Errorf("failed to execute cqlsh command: %v", err)
+		return err
 	}
-	b, err := io.ReadAll(reader)
+	defer session.Close()
+
+	var hostIDMap = make(map[string]string)
+	var localHostID, localIP string
+	err = session.Query("SELECT host_id, rpc_address FROM system.local").Scan(&localHostID, &localIP)
 	if err != nil {
-		return "", err
+		return fmt.Errorf("failed to query a host node: %v", err)
 	}
-	output := string(b)
+	hostIDMap[localIP] = localHostID
 
-	re := regexp.MustCompile(`host_id\s*[-]+\s*([a-f0-9-]{36})`)
-
-	matches := re.FindStringSubmatch(output)
-
-	if len(matches) != 2 {
-		return "", fmt.Errorf("failed to find host_id: %v", output)
+	iter := session.Query("SELECT host_id, peer FROM system.peers").Iter()
+	var peerHostID, peerIP string
+	for iter.Scan(&peerHostID, &peerIP) {
+		hostIDMap[peerIP] = peerHostID
 	}
 
-	return matches[1], nil
+	if err := iter.Close(); err != nil {
+		return fmt.Errorf("failed to query peer nodes info: %v", err)
+	}
+
+	for _, node := range cassNodes {
+		id, ok := hostIDMap[node.Addr]
+		if !ok {
+			return fmt.Errorf("node %s not found in cassandra nodes", node.Addr)
+		}
+
+		node.ID = id
+	}
+
+	return nil
 }
 
 // restoreCluster is a helper function that ensures the cluster remains fully operational during topology changes.
 // Commonly used in test scenarios where nodes are added, removed, or modified to maintain cluster stability and prevent downtime.
 func restoreCluster(ctx context.Context) error {
-	var cmd []string
 	for _, container := range cassNodes {
 		if running := container.TC.IsRunning(); running {
 			continue
@@ -254,20 +266,17 @@ func restoreCluster(ctx context.Context) error {
 			return fmt.Errorf("cannot start a container: %v", err)
 		}
 
-		if *flagRunSslTest {
-			cmd = []string{"cqlsh", container.Addr, "9042", "--ssl", "ip", "/root/.cassandra/cqlshrc", "-e", "SELECT bootstrapped FROM system.local"}
-		} else {
-			cmd = []string{"cqlsh", container.Addr, "9042", "-e", "SELECT bootstrapped FROM system.local"}
+		container.CountRestart += 1
+
+		err := wait.ForLog("Startup complete").
+			WithStartupTimeout(30*time.Second).
+			WithOccurrence(container.CountRestart+1).
+			WaitUntilReady(ctx, container.TC)
+		if err != nil {
+			return fmt.Errorf("cannot wait until a start container: %v", err)
 		}
 
-		err := wait.ForExec(cmd).WithStartupTimeout(2*time.Minute).WithResponseMatcher(func(body io.Reader) bool {
-			data, _ := io.ReadAll(body)
-			return strings.Contains(string(data), "COMPLETED")
-		}).WaitUntilReady(ctx, container.TC)
-		if err != nil {
-			return fmt.Errorf("cannot wait until fully bootstrapped: %v", err)
-		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
 	}
 
 	return nil
