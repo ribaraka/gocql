@@ -23,14 +23,14 @@ jobs:
       - name: Run unit tests
         run: go test -v -tags unit -race
 
-  integration-testscontainers:
+  integration-tc:
     needs: build
     runs-on: ubuntu-latest
-    name: integration-testscontainers
+    name: integration-tc
     strategy:
       matrix:
         go: [ '1.22', '1.23' ]
-        cassandra_version: [ '4.0.8', '4.1.1' ]
+        cassandra_version: [ '4.0.13', '4.1.6']
         auth: [ "false" ]
         compressor: [ "snappy" ]
         tags: [ "cassandra", "integration", "tc"]
@@ -47,14 +47,14 @@ jobs:
         run: |      
           go test -v -tags "${{ matrix.tags }} gocql_debug" -timeout=10m -race ${{ env.args }}       
 
-  integration-auth-testscontainers:
+  integration-auth-tc:
     needs: build
     runs-on: ubuntu-latest
-    name: integration-auth-testscontainers
+    name: integration-auth-tc
     strategy:
       matrix:
         go: [ '1.22', '1.23' ]
-        cassandra_version: [ '4.0.8', '4.1.1' ]
+        cassandra_version: [ '4.1.6', '5.0.0' ]
         compressor: [ "snappy" ]
     steps:
       - uses: actions/checkout@v3
@@ -68,3 +68,27 @@ jobs:
       - name: run
         run: |      
           go test -v -run=TestAuthentication -tags ""integration" gocql_debug" -timeout=15s -runauth ${{ env.args }}          
+
+  integration-tc-cassandrav5:
+    needs: build
+    runs-on: ubuntu-latest
+    name: integration-tc
+    strategy:
+      matrix:
+        go: [ '1.22', '1.23' ]
+        cassandra_version: [ '5.0.0']
+        auth: [ "false" ]
+        compressor: [ "snappy" ]
+        tags: [ "cassandra", "integration", "tc"]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go }}
+      - name: setup
+        run: |
+          args="-gocql.timeout=60s -runssl -proto=4 -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }} ./..."
+          echo "args=$args" >> $GITHUB_ENV
+      - name: run
+        run: |
+          go test -v -tags "${{ matrix.tags }} gocql_debug" -timeout=10m -race ${{ env.args }}
