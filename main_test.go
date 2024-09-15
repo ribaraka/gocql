@@ -31,11 +31,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -116,6 +114,12 @@ func NodeUpTC(ctx context.Context, number int) error {
 		},
 	}
 
+	//// Get absolute paths for the local scripts
+	//absEntryPoint, err := filepath.Abs("./testdata/my-entrypoint.sh")
+	//if err != nil {
+	//	log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
+	//}
+
 	if *flagRunSslTest {
 		env["RUN_SSL_TEST"] = "true"
 		fs = append(fs, []testcontainers.ContainerFile{
@@ -132,51 +136,59 @@ func NodeUpTC(ctx context.Context, number int) error {
 		}...)
 	}
 
+	//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
+	//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
+	//insertScriptExecutio2 := "sed -i '/exec \"$@\"/i bash /usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh"
+
 	req := testcontainers.ContainerRequest{
 		Image:    "cassandra:" + cassandraVersion,
 		Env:      env,
 		Files:    fs,
 		Networks: []string{networkName},
+
+		Cmd: []string{"cassandra -R -f"},
+		//Cmd: []string{"cassandra", "-f", "&&", "ls -l /usr/bin/sed"},
+		//Cmd: []string{"cassandra", "-f"},
 		LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
 			PostStarts: []testcontainers.ContainerHook{
 				func(ctx context.Context, c testcontainers.Container) error {
 					// wait for cassandra config.yaml to initialize
-					time.Sleep(100 * time.Millisecond)
+					//time.Sleep(100 * time.Millisecond)
+					//
+					//_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
+					//if err != nil {
+					//	return err
+					//}
+					//
+					//data, _ := io.ReadAll(body)
+					//if ok := strings.Contains(string(data), "Cassandra configuration modified successfully."); !ok {
+					//	return fmt.Errorf("./update_container_cass_config.sh didn't complete successfully %v", string(data))
+					//}
+					//
+					//return nil
 
-					_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
-					if err != nil {
-						return err
-					}
-
-					data, _ := io.ReadAll(body)
-					if ok := strings.Contains(string(data), "Cassandra configuration modified successfully."); !ok {
-						return fmt.Errorf("./update_container_cass_config.sh didn't complete successfully %v", string(data))
-					}
+					// Command to insert the execution of the custom script into docker-entrypoint.sh
+					//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
+					//
+					//// Execute the sed command inside the container to modify docker-entrypoint.sh
+					//_, _, err := c.Exec(ctx, []string{"bash", "-c", insertScriptExecution})
+					//if err != nil {
+					//	return fmt.Errorf("failed to insert script execution into docker-entrypoint.sh: %v", err)
+					//}
+					//
+					//// Verify that the script execution command was inserted successfully
+					//_, body, err := c.Exec(ctx, []string{"cat", "/usr/local/bin/docker-entrypoint.sh"})
+					//if err != nil {
+					//	return fmt.Errorf("failed to read docker-entrypoint.sh: %v", err)
+					//}
+					//
+					//data, _ := io.ReadAll(body)
+					//fmt.Println("datadatadatadata", string(data))
+					//if !strings.Contains(string(data), "/mnt/data/update_container_cass_config.sh") {
+					//	return fmt.Errorf("script execution not found in docker-entrypoint.sh: %v", string(data))
+					//}
 
 					return nil
-
-					// 					// Command to insert the execution of the custom script into docker-entrypoint.sh
-					//					insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
-					//
-					//					// Execute the sed command inside the container to modify docker-entrypoint.sh
-					//					_, _, err := c.Exec(ctx, []string{"bash", "-c", insertScriptExecution})
-					//					if err != nil {
-					//						return fmt.Errorf("failed to insert script execution into docker-entrypoint.sh: %v", err)
-					//					}
-					//
-					//					// Verify that the script execution command was inserted successfully
-					//					_, body, err := c.Exec(ctx, []string{"cat", "/usr/local/bin/docker-entrypoint.sh"})
-					//					if err != nil {
-					//						return fmt.Errorf("failed to read docker-entrypoint.sh: %v", err)
-					//					}
-					//
-					//					data, _ := io.ReadAll(body)
-					//					fmt.Println("datadatadatadata", string(data))
-					//					//if !strings.Contains(string(data), "/mnt/data/update_container_cass_config.sh") {
-					//					//	return fmt.Errorf("script execution not found in docker-entrypoint.sh: %v", string(data))
-					//					//}
-					//
-					//					return nil
 				},
 			},
 		}},
