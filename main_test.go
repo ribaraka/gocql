@@ -44,14 +44,14 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-type TChost struct {
+type tcNode struct {
 	TC           testcontainers.Container
 	Addr         string
-	ID           string
+	HostID       string
 	CountRestart int
 }
 
-var cassNodes = make(map[string]*TChost)
+var cassNodes = make(map[string]*tcNode)
 var networkName string
 
 func TestMain(m *testing.M) {
@@ -74,11 +74,8 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	// no need host_id for auth test
-	if !*flagRunAuthTest {
-		if err := assignCassNodeID(); err != nil {
-			log.Fatalf("Failed to assign Cassandra node ID: %v", err)
-		}
+	if err := assignHostID(); err != nil {
+		log.Fatalf("Failed to assign Cassandra host ID: %v", err)
 	}
 
 	// run all tests
@@ -114,7 +111,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 	fs := []testcontainers.ContainerFile{
 		{
 			HostFilePath:      "./testdata/update_container_cass_config.sh",
-			ContainerFilePath: "/update_container_cass_config.sh",
+			ContainerFilePath: "/usr/local/bin/update_container_cass_config.sh",
 			FileMode:          0o777,
 		},
 	}
@@ -146,7 +143,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 					// wait for cassandra config.yaml to initialize
 					time.Sleep(100 * time.Millisecond)
 
-					_, body, err := c.Exec(ctx, []string{"bash", "./update_container_cass_config.sh"})
+					_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
 					if err != nil {
 						return err
 					}
@@ -157,11 +154,53 @@ func NodeUpTC(ctx context.Context, number int) error {
 					}
 
 					return nil
+
+					// 					// Command to insert the execution of the custom script into docker-entrypoint.sh
+					//					insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
+					//
+					//					// Execute the sed command inside the container to modify docker-entrypoint.sh
+					//					_, _, err := c.Exec(ctx, []string{"bash", "-c", insertScriptExecution})
+					//					if err != nil {
+					//						return fmt.Errorf("failed to insert script execution into docker-entrypoint.sh: %v", err)
+					//					}
+					//
+					//					// Verify that the script execution command was inserted successfully
+					//					_, body, err := c.Exec(ctx, []string{"cat", "/usr/local/bin/docker-entrypoint.sh"})
+					//					if err != nil {
+					//						return fmt.Errorf("failed to read docker-entrypoint.sh: %v", err)
+					//					}
+					//
+					//					data, _ := io.ReadAll(body)
+					//					fmt.Println("datadatadatadata", string(data))
+					//					//if !strings.Contains(string(data), "/mnt/data/update_container_cass_config.sh") {
+					//					//	return fmt.Errorf("script execution not found in docker-entrypoint.sh: %v", string(data))
+					//					//}
+					//
+					//					return nil
 				},
 			},
 		}},
-		WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
-		Name:       "node" + strconv.Itoa(number),
+		//WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
+		//Entrypoint: []string{"./testdata/docker-entrypoint.sh"},
+		//
+		//Cmd: []string{
+		//	"cassandra",
+		//	"-f",
+		//},
+
+		//ConfigModifier: func(hostConfig *container.Config) {
+		//	hostConfig.Entrypoint
+		//},
+
+		WaitingFor: wait.ForAll(
+			//wait.ForExec([]string{"cqlsh", "-e", "SELECT bootstrapped FROM system.local"}).WithResponseMatcher(func(body io.Reader) bool {
+			//	data, _ := io.ReadAll(body)
+			//	return strings.Contains(string(data), "COMPLETED")
+			//}),
+			wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
+		),
+
+		Name: "node" + strconv.Itoa(number),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -182,42 +221,20 @@ func NodeUpTC(ctx context.Context, number int) error {
 		time.Sleep(10 * time.Second)
 	}
 
-	//hostID, err := getCassNodeID(ctx, container, cIP)
-	//if err != nil {
-	//	return err
-	//}
-	//fmt.Println("HostID IIIIissssssss", hostID)
-
-	cassNodes[req.Name] = &TChost{
+	cassNodes[req.Name] = &tcNode{
 		TC:   container,
 		Addr: cIP,
-		//ID:   hostID,
 	}
 
+	*flagCluster += cIP
 	if *clusterSize > number {
-		*flagCluster += cIP + ","
+		*flagCluster += ","
 	}
 
 	return nil
 }
 
-//func getCassNodeID(ctx context.Context, container testcontainers.Container, ip string) (string, error) {
-//	session, err := createCluster().CreateSession()
-//	if err != nil {
-//		return "", err
-//	}
-//	defer session.Close()
-//
-//	var hostID string
-//	err = session.Query("SELECT host_id FROM system.local").Scan(&hostID)
-//	if err != nil {
-//		return "", fmt.Errorf("failed to query host node info: %v", err)
-//	}
-//
-//	return hostID, nil
-//}
-
-func assignCassNodeID() error {
+func assignHostID() error {
 	cluster := createCluster()
 	session, err := cluster.CreateSession()
 	if err != nil {
@@ -225,31 +242,12 @@ func assignCassNodeID() error {
 	}
 	defer session.Close()
 
-	var hostIDMap = make(map[string]string)
-	var localHostID, localIP string
-	err = session.Query("SELECT host_id, rpc_address FROM system.local").Scan(&localHostID, &localIP)
-	if err != nil {
-		return fmt.Errorf("failed to query a host node: %v", err)
-	}
-	hostIDMap[localIP] = localHostID
-
-	iter := session.Query("SELECT host_id, peer FROM system.peers").Iter()
-	var peerHostID, peerIP string
-	for iter.Scan(&peerHostID, &peerIP) {
-		hostIDMap[peerIP] = peerHostID
-	}
-
-	if err := iter.Close(); err != nil {
-		return fmt.Errorf("failed to query peer nodes info: %v", err)
-	}
-
 	for _, node := range cassNodes {
-		id, ok := hostIDMap[node.Addr]
-		if !ok {
-			return fmt.Errorf("node %s not found in cassandra nodes", node.Addr)
+		if host, ok := session.ring.getHostByIP(node.Addr); ok {
+			node.HostID = host.hostId
+		} else {
+			return fmt.Errorf("host_id for node addr: %s not found", node.Addr)
 		}
-
-		node.ID = id
 	}
 
 	return nil

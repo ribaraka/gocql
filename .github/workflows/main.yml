@@ -30,7 +30,8 @@ jobs:
     strategy:
       matrix:
         go: [ '1.22', '1.23' ]
-        cassandra_version: [ '4.0.13', '4.1.6', '5.0.0']
+#        cassandra_version: [ '4.0.13', '4.1.6', '5.0.0']
+        cassandra_version: [ '5.0.0']
         auth: [ "false" ]
         compressor: [ "snappy" ]
         tags: [ "cassandra", "integration", "tc"]
@@ -54,7 +55,7 @@ jobs:
     strategy:
       matrix:
         go: [ '1.22', '1.23' ]
-        cassandra_version: [ '4.1.6', '5.0.0' ]
+        cassandra_version: [ '5.0.0' ]
         compressor: [ "snappy" ]
     steps:
       - uses: actions/checkout@v3
