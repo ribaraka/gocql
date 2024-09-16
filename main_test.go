@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -106,10 +107,21 @@ func NodeUpTC(ctx context.Context, number int) error {
 		env["AUTH_TEST"] = "true"
 	}
 
+	absEntryPoint, err := filepath.Abs("testdata/docker-entrypoint.sh")
+	if err != nil {
+		log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
+	}
+	fmt.Println("absEntryPoint", absEntryPoint)
+
 	fs := []testcontainers.ContainerFile{
+		//{
+		//	HostFilePath:      "./testdata/update_container_cass_config.sh",
+		//	ContainerFilePath: "/usr/local/bin/update_container_cass_config.sh",
+		//	FileMode:          0o777,
+		//},
 		{
-			HostFilePath:      "./testdata/update_container_cass_config.sh",
-			ContainerFilePath: "/usr/local/bin/update_container_cass_config.sh",
+			HostFilePath:      absEntryPoint,
+			ContainerFilePath: "/usr/local/bin/docker-entrypoint.sh",
 			FileMode:          0o777,
 		},
 	}
@@ -146,7 +158,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 		Files:    fs,
 		Networks: []string{networkName},
 
-		Cmd: []string{"cassandra -R -f"},
+		//Cmd: []string{"bash", "-c", insertScriptExecution + " && exec cassandra -R -f"},
 		//Cmd: []string{"cassandra", "-f", "&&", "ls -l /usr/bin/sed"},
 		//Cmd: []string{"cassandra", "-f"},
 		LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
