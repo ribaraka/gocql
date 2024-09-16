@@ -106,18 +106,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 		env["AUTH_TEST"] = "true"
 	}
 
-	//absEntryPoint, err := filepath.Abs("testdata/docker-entrypoint.sh")
-	//if err != nil {
-	//	log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
-	//}
-	//fmt.Println("absEntryPoint", absEntryPoint)
-
 	fs := []testcontainers.ContainerFile{
-		//{
-		//	HostFilePath:      "./testdata/update_container_cass_config.sh",
-		//	ContainerFilePath: "/usr/local/bin/update_container_cass_config.sh",
-		//	FileMode:          0o777,
-		//},
 		{
 			HostFilePath:      "./testdata/docker-entrypoint.sh",
 			ContainerFilePath: "/usr/local/bin/docker-entrypoint.sh",
@@ -147,68 +136,13 @@ func NodeUpTC(ctx context.Context, number int) error {
 		}...)
 	}
 
-	//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
-	//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
-	//insertScriptExecutio2 := "sed -i '/exec \"$@\"/i bash /usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh"
-
 	req := testcontainers.ContainerRequest{
-		Image:    "cassandra:" + cassandraVersion,
-		Env:      env,
-		Files:    fs,
-		Networks: []string{networkName},
-
-		//Cmd: []string{"bash", "-c", insertScriptExecution + " && exec cassandra -R -f"},
-		//Cmd: []string{"cassandra", "-f", "&&", "ls -l /usr/bin/sed"},
-		//Cmd: []string{"cassandra", "-f"},
-		//LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
-		//	PostStarts: []testcontainers.ContainerHook{
-		//		func(ctx context.Context, c testcontainers.Container) error {
-		//			// wait for cassandra config.yaml to initialize
-		//			//cmd := exec.Command("docker", "exec", c.GetContainerID(), "cat", "/etc/cassandra/cassandra.yaml")
-		//			//output, err := cmd.CombinedOutput()
-		//			//if err != nil {
-		//			//	log.Fatalf("Failed to check write_request_timeout_in_ms: %v\n", err)
-		//			//}
-		//			//
-		//			//fmt.Printf("CombinedOutput output: %s\n", string(output))
-		//
-		//			//time.Sleep(100 * time.Millisecond)
-		//
-		//			_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
-		//			if err != nil {
-		//				return err
-		//			}
-		//
-		//			data, _ := io.ReadAll(body)
-		//			if ok := strings.Contains(string(data), "Cassandra configuration modified successfully."); !ok {
-		//				return fmt.Errorf("./update_container_cass_config.sh didn't complete successfully %v", string(data))
-		//			}
-		//
-		//			return nil
-		//		},
-		//	},
-		//}},
-		//WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
-		//Entrypoint: []string{"./testdata/docker-entrypoint.sh"},
-		//
-		//Cmd: []string{
-		//	"cassandra",
-		//	"-f",
-		//},
-
-		//ConfigModifier: func(hostConfig *container.Config) {
-		//	hostConfig.Entrypoint
-		//},
-
-		WaitingFor: wait.ForAll(
-			//wait.ForExec([]string{"cqlsh", "-e", "SELECT bootstrapped FROM system.local"}).WithResponseMatcher(func(body io.Reader) bool {
-			//	data, _ := io.ReadAll(body)
-			//	return strings.Contains(string(data), "COMPLETED")
-			//}),
-			wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
-		),
-
-		Name: "node" + strconv.Itoa(number),
+		Image:      "cassandra:" + cassandraVersion,
+		Env:        env,
+		Files:      fs,
+		Networks:   []string{networkName},
+		WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
+		Name:       "node" + strconv.Itoa(number),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -244,6 +178,12 @@ func NodeUpTC(ctx context.Context, number int) error {
 
 func assignHostID() error {
 	cluster := createCluster()
+	if *flagRunAuthTest {
+		cluster.Authenticator = PasswordAuthenticator{
+			Username: "cassandra",
+			Password: "cassandra",
+		}
+	}
 	session, err := cluster.CreateSession()
 	if err != nil {
 		return err

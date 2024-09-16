@@ -146,6 +146,7 @@ update_property() {
   fi
 }
 
+# custom script started
 # Function to configure Cassandra based on the version
 configure_cassandra() {
   local keypath="testdata"
@@ -157,7 +158,7 @@ configure_cassandra() {
   if [[ $AUTH_TEST == true ]]; then
       if [[ $CASS_VERSION == 5.*.* ]]; then
         conf+=(
-          "authenticator.class_name : org.apache.cassandra.auth.PasswordAuthenticator"
+          "authenticator.class_name :org.apache.cassandra.auth.PasswordAuthenticator"
           "authorizer: CassandraAuthorizer"
         )
       else
@@ -220,8 +221,6 @@ sed -i "s/^rpc_address:.*/rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.ya
 sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.yaml
 
 echo "Cassandra configuration modified successfully."
-
+# custom script ended
 
 exec "$@"
-
-
