@@ -133,7 +133,7 @@ update_property() {
             next
           }
           { print $0 }
-          ' "$CASSANDRA_CONFIG" > tmpfile && mv tmpfile "$CASSANDRA_CONFIG"
+          ' "$CASSANDRA_CONFIG" > /tmp/tmpfile && mv /tmp/tmpfile "$CASSANDRA_CONFIG"
         fi
       else
         # Add new root property with nested property

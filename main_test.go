@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
@@ -107,11 +106,11 @@ func NodeUpTC(ctx context.Context, number int) error {
 		env["AUTH_TEST"] = "true"
 	}
 
-	absEntryPoint, err := filepath.Abs("testdata/docker-entrypoint.sh")
-	if err != nil {
-		log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
-	}
-	fmt.Println("absEntryPoint", absEntryPoint)
+	//absEntryPoint, err := filepath.Abs("testdata/docker-entrypoint.sh")
+	//if err != nil {
+	//	log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
+	//}
+	//fmt.Println("absEntryPoint", absEntryPoint)
 
 	fs := []testcontainers.ContainerFile{
 		//{
@@ -120,7 +119,7 @@ func NodeUpTC(ctx context.Context, number int) error {
 		//	FileMode:          0o777,
 		//},
 		{
-			HostFilePath:      absEntryPoint,
+			HostFilePath:      "./testdata/docker-entrypoint.sh",
 			ContainerFilePath: "/usr/local/bin/docker-entrypoint.sh",
 			FileMode:          0o777,
 		},
@@ -161,49 +160,34 @@ func NodeUpTC(ctx context.Context, number int) error {
 		//Cmd: []string{"bash", "-c", insertScriptExecution + " && exec cassandra -R -f"},
 		//Cmd: []string{"cassandra", "-f", "&&", "ls -l /usr/bin/sed"},
 		//Cmd: []string{"cassandra", "-f"},
-		LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
-			PostStarts: []testcontainers.ContainerHook{
-				func(ctx context.Context, c testcontainers.Container) error {
-					// wait for cassandra config.yaml to initialize
-					//time.Sleep(100 * time.Millisecond)
-					//
-					//_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
-					//if err != nil {
-					//	return err
-					//}
-					//
-					//data, _ := io.ReadAll(body)
-					//if ok := strings.Contains(string(data), "Cassandra configuration modified successfully."); !ok {
-					//	return fmt.Errorf("./update_container_cass_config.sh didn't complete successfully %v", string(data))
-					//}
-					//
-					//return nil
-
-					// Command to insert the execution of the custom script into docker-entrypoint.sh
-					//insertScriptExecution := `sed -i '/exec "$@"/i bash ./usr/local/bin/update_container_cass_config.sh' /usr/local/bin/docker-entrypoint.sh`
-					//
-					//// Execute the sed command inside the container to modify docker-entrypoint.sh
-					//_, _, err := c.Exec(ctx, []string{"bash", "-c", insertScriptExecution})
-					//if err != nil {
-					//	return fmt.Errorf("failed to insert script execution into docker-entrypoint.sh: %v", err)
-					//}
-					//
-					//// Verify that the script execution command was inserted successfully
-					//_, body, err := c.Exec(ctx, []string{"cat", "/usr/local/bin/docker-entrypoint.sh"})
-					//if err != nil {
-					//	return fmt.Errorf("failed to read docker-entrypoint.sh: %v", err)
-					//}
-					//
-					//data, _ := io.ReadAll(body)
-					//fmt.Println("datadatadatadata", string(data))
-					//if !strings.Contains(string(data), "/mnt/data/update_container_cass_config.sh") {
-					//	return fmt.Errorf("script execution not found in docker-entrypoint.sh: %v", string(data))
-					//}
-
-					return nil
-				},
-			},
-		}},
+		//LifecycleHooks: []testcontainers.ContainerLifecycleHooks{{
+		//	PostStarts: []testcontainers.ContainerHook{
+		//		func(ctx context.Context, c testcontainers.Container) error {
+		//			// wait for cassandra config.yaml to initialize
+		//			//cmd := exec.Command("docker", "exec", c.GetContainerID(), "cat", "/etc/cassandra/cassandra.yaml")
+		//			//output, err := cmd.CombinedOutput()
+		//			//if err != nil {
+		//			//	log.Fatalf("Failed to check write_request_timeout_in_ms: %v\n", err)
+		//			//}
+		//			//
+		//			//fmt.Printf("CombinedOutput output: %s\n", string(output))
+		//
+		//			//time.Sleep(100 * time.Millisecond)
+		//
+		//			_, body, err := c.Exec(ctx, []string{"bash", "/usr/local/bin/update_container_cass_config.sh"})
+		//			if err != nil {
+		//				return err
+		//			}
+		//
+		//			data, _ := io.ReadAll(body)
+		//			if ok := strings.Contains(string(data), "Cassandra configuration modified successfully."); !ok {
+		//				return fmt.Errorf("./update_container_cass_config.sh didn't complete successfully %v", string(data))
+		//			}
+		//
+		//			return nil
+		//		},
+		//	},
+		//}},
 		//WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
 		//Entrypoint: []string{"./testdata/docker-entrypoint.sh"},
 		//
