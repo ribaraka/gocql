@@ -31,7 +31,6 @@ jobs:
       matrix:
         go: [ '1.22', '1.23' ]
         cassandra_version: [ '4.0.13', '4.1.6', '5.0.0']
-#        cassandra_version: [ '5.0.0']
         auth: [ "false" ]
         compressor: [ "snappy" ]
         tags: [ "cassandra", "integration", "tc"]
@@ -42,7 +41,8 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: setup
         run: |
-          args="-gocql.timeout=60s -runssl -proto=4 -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }} ./..."
+          # todo: back the -runssl flag, as soon as the certs get updated.
+          args="-gocql.timeout=60s -proto=4 -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }} ./..."
           echo "args=$args" >> $GITHUB_ENV
       - name: run
         run: |      
@@ -64,7 +64,8 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: setup
         run: |
-          args="-gocql.timeout=60s -runssl -proto=4 -rf=3 -clusterSize=1 -autowait=2000ms -runauth -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }} ./..."
+          # todo: return back the -runssl flag, as soon as the certs get updated.
+          args="-gocql.timeout=60s -proto=4 -rf=3 -clusterSize=1 -autowait=2000ms -runauth -compressor=${{ matrix.compressor }} -gocql.cversion=${{ matrix.cassandra_version }}"
           echo "args=$args" >> $GITHUB_ENV
       - name: run
         run: |      

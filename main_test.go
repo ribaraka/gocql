@@ -87,8 +87,8 @@ func NodeUpTC(ctx context.Context, number int) error {
 
 	jvmOpts := "-Dcassandra.test.fail_writes_ks=test -Dcassandra.custom_query_handler_class=org.apache.cassandra.cql3.CustomPayloadMirroringQueryHandler"
 	if *clusterSize == 1 {
-		// speeds up the creation of a single-node cluster.
-		jvmOpts += " -Dcassandra.initial_token=0 -Dcassandra.skip_wait_for_gossip_to_settle=0"
+		// speeds up the creation of a single-node cluster. not for topology tests
+		jvmOpts += " -Dcassandra.skip_wait_for_gossip_to_settle=0"
 	}
 
 	env := map[string]string{
@@ -108,17 +108,16 @@ func NodeUpTC(ctx context.Context, number int) error {
 
 	fs := []testcontainers.ContainerFile{
 		{
+			HostFilePath:      "./testdata/update_cas_config.sh",
+			ContainerFilePath: "/usr/local/bin/update_cas_config.sh",
+			FileMode:          0o777,
+		},
+		{
 			HostFilePath:      "./testdata/docker-entrypoint.sh",
 			ContainerFilePath: "/usr/local/bin/docker-entrypoint.sh",
 			FileMode:          0o777,
 		},
 	}
-
-	//// Get absolute paths for the local scripts
-	//absEntryPoint, err := filepath.Abs("./testdata/my-entrypoint.sh")
-	//if err != nil {
-	//	log.Fatalf("failed to get absolute path for my-entrypoint.sh: %s", err)
-	//}
 
 	if *flagRunSslTest {
 		env["RUN_SSL_TEST"] = "true"
@@ -222,7 +221,7 @@ func restoreCluster(ctx context.Context) error {
 			return fmt.Errorf("cannot wait until a start container: %v", err)
 		}
 
-		time.Sleep(30 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil
