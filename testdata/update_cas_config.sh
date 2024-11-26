@@ -54,7 +54,7 @@ update_property() {
 
 # Function to configure Cassandra based on the version
 configure_cassandra() {
-  local keypath="testdata"
+#  local keypath="testdata"
   local conf=(
     "concurrent_reads:2"
     "concurrent_writes:2"
@@ -77,10 +77,10 @@ fi
   if [[ $RUN_SSL_TEST == true ]]; then
     conf+=(
       "client_encryption_options.enabled:true"
-      "client_encryption_options.keystore:$keypath/.keystore"
+      "client_encryption_options.keystore:.keystore"
       "client_encryption_options.keystore_password:cassandra"
       "client_encryption_options.require_client_auth:true"
-      "client_encryption_options.truststore:$keypath/.truststore"
+      "client_encryption_options.truststore:.truststore"
       "client_encryption_options.truststore_password:cassandra"
         )
   fi
@@ -115,6 +115,11 @@ fi
     IFS=":" read -r property value <<< "$setting"
     update_property "$property" "$value"
   done
+
+  # Update rpc addresses with the container's IP address
+  IP_ADDRESS=$(hostname -i)
+  sed -i "s/^rpc_address:.*/rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.yaml
+  sed -i "s/^# broadcast_rpc_address:.*/broadcast_rpc_address: $IP_ADDRESS/" /etc/cassandra/cassandra.yaml
 
   echo "Cassandra configuration modified successfully."
 }
