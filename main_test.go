@@ -38,7 +38,6 @@ import (
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
@@ -50,18 +49,22 @@ type tcNode struct {
 }
 
 var cassNodes = make(map[string]*tcNode)
-var networkName string
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	flag.Parse()
 
-	net, err := network.New(ctx)
-	if err != nil {
-		log.Fatal("cannot create network: ", err)
+	networkRequest := testcontainers.GenericNetworkRequest{
+		NetworkRequest: testcontainers.NetworkRequest{
+			Name: "cassandra",
+		},
 	}
-	networkName = net.Name
+	cassandraNetwork, err := testcontainers.GenericNetwork(ctx, networkRequest)
+	if err != nil {
+		log.Fatalf("Failed to create network: %s", err)
+	}
+	defer cassandraNetwork.Remove(ctx)
 
 	//collect cass nodes into a cluster
 	*flagCluster = ""
@@ -109,12 +112,12 @@ func NodeUpTC(ctx context.Context, number int) error {
 		{
 			HostFilePath:      "./testdata/update_cas_config.sh",
 			ContainerFilePath: "/usr/local/bin/update_cas_config.sh",
-			FileMode:          0o777,
+			FileMode:          777,
 		},
 		{
 			HostFilePath:      "./testdata/docker-entrypoint.sh",
 			ContainerFilePath: "/usr/local/bin/docker-entrypoint.sh",
-			FileMode:          0o777,
+			FileMode:          777,
 		},
 	}
 
@@ -123,24 +126,31 @@ func NodeUpTC(ctx context.Context, number int) error {
 		fs = append(fs, []testcontainers.ContainerFile{
 			{
 				HostFilePath:      "./testdata/pki/.keystore",
-				ContainerFilePath: "testdata/.keystore",
-				FileMode:          0o777,
+				ContainerFilePath: "/.keystore",
+				FileMode:          777,
 			},
 			{
 				HostFilePath:      "./testdata/pki/.truststore",
-				ContainerFilePath: "testdata/.truststore",
-				FileMode:          0o777,
+				ContainerFilePath: "/.truststore",
+				FileMode:          777,
 			},
 		}...)
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image:      "cassandra:" + cassandraVersion,
-		Env:        env,
-		Files:      fs,
-		Networks:   []string{networkName},
-		WaitingFor: wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
-		Name:       "node" + strconv.Itoa(number),
+		Image: "cassandra:" + cassandraVersion,
+		Cmd: []string{"/bin/bash", "-c", "chmod 755 /.keystore && " +
+			"chmod 755 /.truststore && " +
+			"chmod 755 /usr/local/bin/update_cas_config.sh && " +
+			"chmod 755 /usr/local/bin/docker-entrypoint.sh && " +
+			"/usr/local/bin/docker-entrypoint.sh",
+		},
+		ExposedPorts: []string{"9042/tcp"},
+		Env:          env,
+		Files:        fs,
+		Networks:     []string{"cassandra"},
+		WaitingFor:   wait.ForLog("Startup complete").WithStartupTimeout(2 * time.Minute),
+		Name:         "node" + strconv.Itoa(number),
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

@@ -2937,7 +2937,7 @@ func TestDiscoverViaProxy(t *testing.T) {
 	// and does not store the proxies address as a host in its connection pool.
 	// See https://github.com/apache/cassandra-gocql-driver/issues/481
 	clusterHosts := getClusterHosts()
-	proxy, err := net.Listen("tcp", "localhost:0")
+	proxy, err := net.Listen("tcp", "127.0.0.2:0")
 	if err != nil {
 		t.Fatalf("unable to create proxy listener: %v", err)
 	}
