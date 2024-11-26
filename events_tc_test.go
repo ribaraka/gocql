@@ -41,7 +41,7 @@ func TestEventDiscovery(t *testing.T) {
 	for _, node := range cassNodes {
 		host := session.ring.getHost(node.HostID)
 		if host == nil {
-			t.Errorf("did not discover %q", node.Addr)
+			t.Errorf("did not discover %q", node.IP)
 		}
 		if t.Failed() {
 			t.FailNow()
@@ -55,7 +55,7 @@ func TestEventNodeDownControl(t *testing.T) {
 
 	node := cassNodes[targetNode]
 	cluster := createCluster()
-	cluster.Hosts = []string{node.Addr}
+	cluster.Hosts = []string{node.IP}
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
@@ -83,6 +83,11 @@ func TestEventNodeDownControl(t *testing.T) {
 
 func TestEventNodeDown(t *testing.T) {
 	ctx := context.Background()
+
+	clusterHosts := getClusterHosts()
+	if len(clusterHosts) < 3 {
+		t.Skip("skipping because we don't have 3 or more hosts")
+	}
 
 	const targetNode = "node3"
 	node := cassNodes[targetNode]
@@ -114,6 +119,11 @@ func TestEventNodeDown(t *testing.T) {
 func TestEventNodeUp(t *testing.T) {
 	ctx := context.Background()
 
+	clusterHosts := getClusterHosts()
+	if len(clusterHosts) < 2 {
+		t.Skip("skipping because we don't have 2 or more hosts")
+	}
+
 	session := createSession(t)
 	defer session.Close()
 
@@ -121,7 +131,7 @@ func TestEventNodeUp(t *testing.T) {
 	node := cassNodes[targetNode]
 
 	if _, ok := getPool(session.pool, node.HostID); !ok {
-		t.Errorf("target pool not in connection pool: addr=%q pools=%v", node.Addr, session.pool.hostConnPools)
+		t.Errorf("target pool not in connection pool: addr=%q pools=%v", node.IP, session.pool.hostConnPools)
 		t.FailNow()
 	}
 
@@ -138,7 +148,7 @@ func TestEventNodeUp(t *testing.T) {
 	}
 
 	// cassandra < 2.2 needs 10 seconds to start up the binary service
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	if _, ok := getPool(session.pool, node.HostID); !ok {
 		t.Fatal("node not added after node added event")
@@ -148,24 +158,33 @@ func TestEventNodeUp(t *testing.T) {
 	if host == nil {
 		t.Fatal("node not in metadata ring")
 	} else if !host.IsUp() {
-		t.Fatalf("not not marked as UP after event in metadata: addr=%q host=%p: %v", node.Addr, host, host)
+		t.Fatalf("not not marked as UP after event in metadata: addr=%q host=%p: %v", node.IP, host, host)
 	}
 }
 
 func TestEventFilter(t *testing.T) {
 	ctx := context.Background()
 
-	cluster := createCluster()
+	clusterHosts := getClusterHosts()
+	if len(clusterHosts) < 3 {
+		t.Skip("skipping because we don't have 3 or more hosts")
+	}
 
-	whiteListedNodeName := "node1"
-	whiteListedNode := cassNodes[whiteListedNodeName]
-	cluster.HostFilter = WhiteListHostFilter(whiteListedNode.Addr)
+	filtered := cassNodes["node1"].IP
+
+	cluster := createCluster()
+	cluster.HostFilter = HostFilterFunc(func(host *HostInfo) bool {
+		if host.RPCAddress().String() != filtered {
+			return false
+		}
+		return true
+	})
 
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	if _, ok := getPool(session.pool, whiteListedNode.HostID); !ok {
-		t.Errorf("should have %v in pool but dont", whiteListedNodeName)
+	if _, ok := getPool(session.pool, cassNodes["node1"].HostID); !ok {
+		t.Error("should have node1 in pool but dont")
 	}
 
 	for _, node := range [...]string{"node2", "node3"} {
@@ -206,13 +225,13 @@ func TestEventDownQueryable(t *testing.T) {
 	targetNode := cassNodes["node1"]
 
 	cluster := createCluster()
-	cluster.Hosts = []string{targetNode.Addr}
-	cluster.HostFilter = WhiteListHostFilter(targetNode.Addr)
+	cluster.Hosts = []string{targetNode.IP}
+	cluster.HostFilter = WhiteListHostFilter(targetNode.IP)
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
 	if pool, ok := getPool(session.pool, targetNode.HostID); !ok {
-		t.Fatalf("should have %v in pool but dont", targetNode.Addr)
+		t.Fatalf("should have %v in pool but dont", targetNode.IP)
 	} else if !pool.host.IsUp() {
 		t.Fatalf("host is not up %v", pool.host)
 	}
@@ -226,7 +245,7 @@ func TestEventDownQueryable(t *testing.T) {
 	}
 
 	if pool, ok := getPool(session.pool, targetNode.HostID); !ok {
-		t.Fatalf("should have %v in pool but dont", targetNode.Addr)
+		t.Fatalf("should have %v in pool but dont", targetNode.IP)
 	} else if !pool.host.IsUp() {
 		t.Fatalf("host is not up %v", pool.host)
 	}

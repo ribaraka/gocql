@@ -44,7 +44,7 @@ import (
 
 type tcNode struct {
 	TC           testcontainers.Container
-	Addr         string
+	IP           string
 	HostID       string
 	CountRestart int
 }
@@ -66,7 +66,7 @@ func TestMain(m *testing.M) {
 	//collect cass nodes into a cluster
 	*flagCluster = ""
 	for i := 1; i <= *clusterSize; i++ {
-		err = NodeUpTC(ctx, i)
+		err := NodeUpTC(ctx, i)
 		if err != nil {
 			log.Fatalf("Failed to start Cassandra node %d: %v", i, err)
 		}
@@ -162,11 +162,16 @@ func NodeUpTC(ctx context.Context, number int) error {
 	}
 
 	cassNodes[req.Name] = &tcNode{
-		TC:   container,
-		Addr: cIP,
+		TC: container,
+		IP: cIP,
 	}
 
-	*flagCluster += cIP
+	connAddr, err := getConnectAddr(ctx, container)
+	if err != nil {
+		return fmt.Errorf("failed to assign Cassandra host ID: %v", err)
+	}
+
+	*flagCluster += connAddr
 	if *clusterSize > number {
 		*flagCluster += ","
 	}
@@ -189,10 +194,10 @@ func assignHostID() error {
 	defer session.Close()
 
 	for _, node := range cassNodes {
-		if host, ok := session.ring.getHostByIP(node.Addr); ok {
+		if host, ok := session.ring.getHostByIP(node.IP); ok {
 			node.HostID = host.hostId
 		} else {
-			return fmt.Errorf("host_id for node addr: %s not found", node.Addr)
+			return fmt.Errorf("host_id for node addr: %s not found", node.IP)
 		}
 	}
 
@@ -202,28 +207,55 @@ func assignHostID() error {
 // restoreCluster is a helper function that ensures the cluster remains fully operational during topology changes.
 // Commonly used in test scenarios where nodes are added, removed, or modified to maintain cluster stability and prevent downtime.
 func restoreCluster(ctx context.Context) error {
-	for _, container := range cassNodes {
-		if running := container.TC.IsRunning(); running {
-			continue
-		}
-		if err := container.TC.Start(ctx); err != nil {
-			return fmt.Errorf("cannot start a container: %v", err)
+	*flagCluster = ""
+	nodesNumber := len(cassNodes)
+	i := 1
+	for _, node := range cassNodes {
+		if running := node.TC.IsRunning(); !running {
+			if err := node.TC.Start(ctx); err != nil {
+				return fmt.Errorf("cannot start a container: %v", err)
+			}
+
+			node.CountRestart += 1
+
+			err := wait.ForLog("Startup complete").
+				WithStartupTimeout(60*time.Second).
+				WithOccurrence(node.CountRestart+1).
+				WaitUntilReady(ctx, node.TC)
+			if err != nil {
+				return fmt.Errorf("cannot wait until a start container: %v", err)
+			}
+
+			time.Sleep(10 * time.Second)
 		}
 
-		container.CountRestart += 1
-
-		err := wait.ForLog("Startup complete").
-			WithStartupTimeout(60*time.Second).
-			WithOccurrence(container.CountRestart+1).
-			WaitUntilReady(ctx, container.TC)
+		connAddr, err := getConnectAddr(ctx, node.TC)
 		if err != nil {
-			return fmt.Errorf("cannot wait until a start container: %v", err)
+			return fmt.Errorf("failed to assign Cassandra host ID: %v", err)
 		}
 
-		time.Sleep(10 * time.Second)
+		*flagCluster += connAddr
+		if nodesNumber > i {
+			*flagCluster += ","
+		}
+		i++
 	}
 
 	return nil
+}
+
+func getConnectAddr(ctx context.Context, container testcontainers.Container) (string, error) {
+	hostIP, err := container.Host(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not get container host: %v", err)
+	}
+
+	listenPort, err := container.MappedPort(ctx, "9042/tcp")
+	if err != nil {
+		return "", fmt.Errorf("could not get mapped port of a listen node: %v", err)
+	}
+
+	return fmt.Sprintf("%s:%s", hostIP, listenPort.Port()), nil
 }
 
 // getPool is a test helper designed to enhance readability by mocking the `func (p *policyConnPool) getPool(host *HostInfo) (pool *hostConnPool, ok bool)` method.
