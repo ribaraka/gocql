@@ -62,18 +62,18 @@ func TestControlConn_ReconnectRefreshesRing(t *testing.T) {
 
 	allAllowedHosts := map[string]*tcNode{}
 	for _, node := range cassNodes {
-		allAllowedHosts[node.Addr] = node
+		allAllowedHosts[node.IP] = node
 	}
 
 	firstNode := cassNodes["node1"]
 	allowedHosts := map[string]*tcNode{
-		firstNode.Addr: firstNode,
+		firstNode.IP: firstNode,
 	}
 
 	testFilter := &TestHostFilter{allowedHosts: allowedHosts}
 
 	session := createSession(t, func(config *ClusterConfig) {
-		config.Hosts = []string{firstNode.Addr}
+		config.Hosts = []string{firstNode.IP}
 		config.Events.DisableTopologyEvents = true
 		config.Events.DisableNodeStatusEvents = true
 		config.HostFilter = testFilter
@@ -89,7 +89,7 @@ func TestControlConn_ReconnectRefreshesRing(t *testing.T) {
 
 	var ccHostName string
 	for name, node := range cassNodes {
-		if node.Addr == ccHost.ConnectAddress().String() {
+		if node.IP == ccHost.ConnectAddress().String() {
 			ccHostName = name
 			break
 		}

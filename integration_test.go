@@ -112,7 +112,7 @@ func TestHostFilterDiscovery(t *testing.T) {
 	rr := RoundRobinHostPolicy().(*roundRobinHostPolicy)
 	cluster.PoolConfig.HostSelectionPolicy = rr
 	// we'll filter out the second host
-	filtered := clusterHosts[1]
+	filtered := cassNodes["node2"].IP
 	cluster.Hosts = clusterHosts[:1]
 	cluster.HostFilter = HostFilterFunc(func(host *HostInfo) bool {
 		if host.ConnectAddress().String() == filtered {
@@ -137,7 +137,7 @@ func TestHostFilterInitial(t *testing.T) {
 	rr := RoundRobinHostPolicy().(*roundRobinHostPolicy)
 	cluster.PoolConfig.HostSelectionPolicy = rr
 	// we'll filter out the second host
-	filtered := clusterHosts[1]
+	filtered := cassNodes["node2"].IP
 	cluster.HostFilter = HostFilterFunc(func(host *HostInfo) bool {
 		if host.ConnectAddress().String() == filtered {
 			return false
