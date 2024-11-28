@@ -807,7 +807,7 @@ func TestReconnection(t *testing.T) {
 	defer session.Close()
 
 	h := session.ring.allHosts()[0]
-	session.handleNodeDown(h.ConnectAddress(), h.Port())
+	session.handleNodeDown(h.RPCAddress(), h.Port())
 
 	if h.State() != NodeDown {
 		t.Fatal("Host should be NodeDown but not.")
@@ -1502,8 +1502,7 @@ func TestQueryInfo(t *testing.T) {
 func TestPrepare_PreparedCacheEviction(t *testing.T) {
 	const maxPrepared = 4
 
-	clusterHosts := getClusterHosts()
-	host := clusterHosts[0]
+	host := cassNodes["node1"].IP
 	cluster := createCluster()
 	cluster.MaxPreparedStmts = maxPrepared
 	cluster.Events.DisableSchemaEvents = true
@@ -3030,10 +3029,10 @@ func TestDiscoverViaProxy(t *testing.T) {
 
 	session.pool.mu.RLock()
 
-	for _, host := range clusterHosts {
+	for _, host := range cassNodes {
 		found := false
 		for _, hi := range session.pool.hostConnPools {
-			if hi.host.RPCAddress().String() == host {
+			if hi.host.RPCAddress().String() == host.IP {
 				found = true
 				break
 			}
