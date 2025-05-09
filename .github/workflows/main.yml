@@ -210,3 +210,10 @@ jobs:
           source ~/venv/bin/activate
           export JVM_EXTRA_OPTS="${{env.JVM_EXTRA_OPTS}}"
           go test -v -run=TestAuthentication -tags "${{ matrix.tags }} gocql_debug" -timeout=15s -runauth ${{ env.args }}
+      - name: 'Save ccm logs'
+        if: 'failure()'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ccm-cluster
+          path: /home/runner/.ccm/test
+          retention-days: 5
