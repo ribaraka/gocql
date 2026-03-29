@@ -479,17 +479,17 @@ func TestCAS(t *testing.T) {
 		t.Fatalf("insert should have not been applied: title=%v revID=%v modified=%v", titleCAS, revidCAS, modifiedCAS)
 	}
 
-	insertBatch := session.Batch(LoggedBatch)
-	insertBatch.Query("INSERT INTO cas_table (title, revid, last_modified) VALUES ('_foo', 2c3af400-73a4-11e5-9381-29463d90c3f0, TOTIMESTAMP(NOW()))")
-	insertBatch.Query("INSERT INTO cas_table (title, revid, last_modified) VALUES ('_foo', 3e4ad2f1-73a4-11e5-9381-29463d90c3f0, TOTIMESTAMP(NOW()))")
-	if err := insertBatch.Exec(); err != nil {
+	insertBatch := session.NewBatch(LoggedBatch)
+	insertBatch.Query("INSERT INTO cas_table (title, revid, last_modified) VALUES ('_foo', 2c3af400-73a4-11e5-9381-29463d90c3f0, toTimestamp(NOW()))")
+	insertBatch.Query("INSERT INTO cas_table (title, revid, last_modified) VALUES ('_foo', 3e4ad2f1-73a4-11e5-9381-29463d90c3f0, toTimestamp(NOW()))")
+	if err := session.ExecuteBatch(insertBatch); err != nil {
 		t.Fatal("insert:", err)
 	}
 
-	failBatch = session.Batch(LoggedBatch)
-	failBatch.Query("UPDATE cas_table SET last_modified = TOTIMESTAMP(NOW()) WHERE title='_foo' AND revid=2c3af400-73a4-11e5-9381-29463d90c3f0 IF last_modified=TOTIMESTAMP(NOW());")
-	failBatch.Query("UPDATE cas_table SET last_modified = TOTIMESTAMP(NOW()) WHERE title='_foo' AND revid=3e4ad2f1-73a4-11e5-9381-29463d90c3f0 IF last_modified=TOTIMESTAMP(NOW());")
-	if applied, iter, err := failBatch.ExecCAS(&titleCAS, &revidCAS, &modifiedCAS); err != nil {
+	failBatch = session.NewBatch(LoggedBatch)
+	failBatch.Query("UPDATE cas_table SET last_modified = toTimestamp(NOW()) WHERE title='_foo' AND revid=2c3af400-73a4-11e5-9381-29463d90c3f0 IF last_modified=toTimestamp(NOW());")
+	failBatch.Query("UPDATE cas_table SET last_modified = toTimestamp(NOW()) WHERE title='_foo' AND revid=3e4ad2f1-73a4-11e5-9381-29463d90c3f0 IF last_modified=toTimestamp(NOW());")
+	if applied, iter, err := session.ExecuteBatchCAS(failBatch, &titleCAS, &revidCAS, &modifiedCAS); err != nil {
 		t.Fatal("insert:", err)
 	} else if applied {
 		t.Fatalf("insert should have not been applied: title=%v revID=%v modified=%v", titleCAS, revidCAS, modifiedCAS)
@@ -764,7 +764,6 @@ func TestBatch(t *testing.T) {
 }
 
 func TestUnpreparedBatch(t *testing.T) {
-	t.Skip("FLAKE skipping")
 	session := createSession(t)
 	defer session.Close()
 
@@ -3562,14 +3561,12 @@ func TestDiscoverViaProxy(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	// we shouldnt need this but to be safe
-	time.Sleep(1 * time.Second)
-
 	session.pool.mu.RLock()
+
 	for _, host := range clusterHosts {
 		found := false
 		for _, hi := range session.pool.hostConnPools {
-			if hi.host.ConnectAddress().String() == host {
+			if hi.host.RPCAddress().String() == host {
 				found = true
 				break
 			}
